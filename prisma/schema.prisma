@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ArchiveFile {
+  id            Int      @id @default(autoincrement())
+  fileCode      String   @unique(map: "file_code") @map("file_code")
+  title         String
+  supplier      String?
+  category      String?
+  department    String?
+  room          String?
+  rack          String?
+  shelf         String?
+  boxNumber     String?  @map("box_number")
+  retentionDate String?  @map("retention_date")
+  status        String   @default("Active")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("archive_files")
+}
+
+model Category {
+  id           Int    @id @default(autoincrement())
+  categoryName String @unique(map: "category_name") @map("category_name")
+
+  @@map("categories")
+}
+
+model Supplier {
+  id           Int    @id @default(autoincrement())
+  supplierName String @unique(map: "supplier_name") @map("supplier_name")
+
+  @@map("suppliers")
+}
+
+model Room {
+  id       Int    @id @default(autoincrement())
+  roomName String @unique(map: "room_name") @map("room_name")
+
+  @@map("rooms")
+}
+
+model Status {
+  id         Int    @id @default(autoincrement())
+  statusName String @unique(map: "status_name") @map("status_name")
+
+  @@map("statuses")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+  fullName String @map("full_name")
+  role     String
+  isActive Int    @default(1) @map("is_active")
+
+  @@map("users")
+}
