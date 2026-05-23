@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/require-auth'
+import { logActivity } from '@/lib/activity-logger'
 
 export async function GET() {
   try {
+    const auth = await requireAuth()
+    if (!auth.authenticated) return auth.error
+
     const categories = await db.category.findMany({
       orderBy: { categoryName: 'asc' },
     })
@@ -18,6 +23,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth(['Admin', 'Manager'])
+    if (!auth.authenticated) return auth.error
+
     const body = await request.json()
     const { categoryName } = body
 
@@ -30,6 +38,14 @@ export async function POST(request: NextRequest) {
 
     const category = await db.category.create({
       data: { categoryName },
+    })
+
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'category',
+      entityId: String(category.id),
+      description: `Created category: ${categoryName}`,
+      performedBy: auth.user?.username || null,
     })
 
     return NextResponse.json(category, { status: 201 })

@@ -4,7 +4,7 @@ import { requireAuth } from '@/lib/require-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth()
+    const auth = await requireAuth(['Admin'])
     if (!auth.authenticated) return auth.error
 
     const { searchParams } = new URL(request.url)

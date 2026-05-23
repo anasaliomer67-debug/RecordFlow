@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/require-auth'
+import { logActivity } from '@/lib/activity-logger'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authenticated) return auth.error
+
     const searchParams = request.nextUrl.searchParams
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
@@ -44,6 +49,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth(['Admin', 'Manager'])
+    if (!auth.authenticated) return auth.error
+
     const body = await request.json()
     const {
       fileCode,
@@ -82,6 +90,15 @@ export async function POST(request: NextRequest) {
         status: status || 'Active',
         notes: notes || null,
       },
+    })
+
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'archive_file',
+      entityId: String(archiveFile.id),
+      description: `Created archive file: ${fileCode} - ${title}`,
+      details: JSON.stringify({ fileCode, title, supplier, category, department, room }),
+      performedBy: auth.user?.username || null,
     })
 
     return NextResponse.json(archiveFile, { status: 201 })

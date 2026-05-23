@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/require-auth'
+import { logActivity } from '@/lib/activity-logger'
 
 export async function GET() {
   try {
+    const auth = await requireAuth()
+    if (!auth.authenticated) return auth.error
+
     const suppliers = await db.supplier.findMany({
       orderBy: { supplierName: 'asc' },
     })
@@ -18,6 +23,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth(['Admin', 'Manager'])
+    if (!auth.authenticated) return auth.error
+
     const body = await request.json()
     const { supplierName } = body
 
@@ -30,6 +38,14 @@ export async function POST(request: NextRequest) {
 
     const supplier = await db.supplier.create({
       data: { supplierName },
+    })
+
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'supplier',
+      entityId: String(supplier.id),
+      description: `Created supplier: ${supplierName}`,
+      performedBy: auth.user?.username || null,
     })
 
     return NextResponse.json(supplier, { status: 201 })

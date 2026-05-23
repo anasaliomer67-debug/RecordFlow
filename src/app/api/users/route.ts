@@ -2,10 +2,11 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { requireAuth } from '@/lib/require-auth'
+import { logActivity } from '@/lib/activity-logger'
 
 export async function GET() {
   try {
-    const auth = await requireAuth()
+    const auth = await requireAuth(['Admin'])
     if (!auth.authenticated) return auth.error
 
     const users = await db.user.findMany({
@@ -64,6 +65,14 @@ export async function POST(request: NextRequest) {
         role: true,
         isActive: true,
       },
+    })
+
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'user',
+      entityId: String(user.id),
+      description: `Created user: ${fullName} (@${username}) with role ${role}`,
+      performedBy: auth.user?.username || null,
     })
 
     return NextResponse.json(user, { status: 201 })

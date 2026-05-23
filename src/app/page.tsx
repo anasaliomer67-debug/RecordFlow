@@ -11,7 +11,7 @@ import { SettingsPage } from '@/components/settings-page'
 import { ActivityLogPage } from '@/components/activity-log-page'
 import { AuthProvider } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
-import { Menu, LogOut, User, Shield } from 'lucide-react'
+import { Menu, LogOut, User, Shield, Lock } from 'lucide-react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useSession, signOut } from 'next-auth/react'
 import { useState, useEffect } from 'react'
@@ -36,7 +36,39 @@ const pageTitles: Record<PageType, string> = {
   settings: 'Settings',
 }
 
+// Pages that require Admin role
+const adminOnlyPages: PageType[] = ['users', 'activity-log', 'settings']
+
+function AccessDenied({ pageName }: { pageName: string }) {
+  return (
+    <div className="flex h-full min-h-[50vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+          <Lock className="size-8 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold">Access Restricted</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            You need admin privileges to access the <strong>{pageName}</strong> page.
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Contact your administrator if you believe this is an error.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function PageContent({ page }: { page: PageType }) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'Admin'
+
+  // Check if page requires admin access
+  if (adminOnlyPages.includes(page) && !isAdmin) {
+    return <AccessDenied pageName={pageTitles[page]} />
+  }
+
   switch (page) {
     case 'dashboard':
       return <DashboardPage />
@@ -102,7 +134,7 @@ function UserMenu() {
 }
 
 function AppContent() {
-  const { activePage, setSidebarOpen } = useAppStore()
+  const { activePage, setSidebarOpen, setActivePage } = useAppStore()
   const { data: session, status } = useSession()
   const router = useRouter()
   const [queryClient] = useState(() => new QueryClient({
@@ -119,6 +151,13 @@ function AppContent() {
       router.push('/login')
     }
   }, [status, router])
+
+  // Redirect non-admin users away from admin-only pages
+  useEffect(() => {
+    if (session?.user?.role && session.user.role !== 'Admin' && adminOnlyPages.includes(activePage)) {
+      setActivePage('dashboard')
+    }
+  }, [session, activePage, setActivePage])
 
   if (status === 'loading') {
     return (

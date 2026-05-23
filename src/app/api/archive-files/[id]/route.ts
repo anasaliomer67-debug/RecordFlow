@@ -1,11 +1,16 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/require-auth'
+import { logActivity } from '@/lib/activity-logger'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth()
+    if (!auth.authenticated) return auth.error
+
     const { id } = await params
     const archiveFile = await db.archiveFile.findUnique({
       where: { id: parseInt(id) },
@@ -33,6 +38,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth(['Admin', 'Manager'])
+    if (!auth.authenticated) return auth.error
+
     const { id } = await params
     const body = await request.json()
 
@@ -65,6 +73,22 @@ export async function PUT(
       },
     })
 
+    // Detect status change for more specific logging
+    const statusChanged = body.status !== undefined && body.status !== existing.status
+    await logActivity({
+      action: statusChanged ? 'STATUS_CHANGE' : 'UPDATE',
+      entityType: 'archive_file',
+      entityId: String(updatedFile.id),
+      description: statusChanged
+        ? `Changed status of "${existing.fileCode}" from "${existing.status}" to "${body.status}"`
+        : `Updated archive file: ${existing.fileCode} - ${existing.title}`,
+      details: JSON.stringify({
+        changes: Object.keys(body).filter(k => body[k] !== undefined),
+        fileCode: existing.fileCode,
+      }),
+      performedBy: auth.user?.username || null,
+    })
+
     return NextResponse.json(updatedFile)
   } catch (error: unknown) {
     console.error('Error updating archive file:', error)
@@ -87,6 +111,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth(['Admin'])
+    if (!auth.authenticated) return auth.error
+
     const { id } = await params
 
     const existing = await db.archiveFile.findUnique({
@@ -102,6 +129,14 @@ export async function DELETE(
 
     await db.archiveFile.delete({
       where: { id: parseInt(id) },
+    })
+
+    await logActivity({
+      action: 'DELETE',
+      entityType: 'archive_file',
+      entityId: String(existing.id),
+      description: `Deleted archive file: ${existing.fileCode} - ${existing.title}`,
+      performedBy: auth.user?.username || null,
     })
 
     return NextResponse.json({ message: 'Archive file deleted successfully' })

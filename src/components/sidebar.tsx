@@ -15,6 +15,7 @@ import {
   ClipboardList,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -28,21 +29,28 @@ interface NavItem {
   id: PageType
   label: string
   icon: React.ReactNode
+  adminOnly?: boolean
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="size-5" /> },
   { id: 'archive-files', label: 'Archive Files', icon: <Archive className="size-5" /> },
   { id: 'locations', label: 'Locations', icon: <MapPin className="size-5" /> },
-  { id: 'users', label: 'Users', icon: <Users className="size-5" /> },
-  { id: 'activity-log', label: 'Activity Log', icon: <ClipboardList className="size-5" /> },
+  { id: 'users', label: 'Users', icon: <Users className="size-5" />, adminOnly: true },
+  { id: 'activity-log', label: 'Activity Log', icon: <ClipboardList className="size-5" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <BarChart3 className="size-5" /> },
-  { id: 'settings', label: 'Settings', icon: <Settings className="size-5" /> },
+  { id: 'settings', label: 'Settings', icon: <Settings className="size-5" />, adminOnly: true },
 ]
 
 function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const { activePage, setActivePage } = useAppStore()
   const { theme, setTheme } = useTheme()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'Admin'
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.adminOnly || isAdmin
+  )
 
   const handleNavClick = (id: PageType) => {
     setActivePage(id)
@@ -66,7 +74,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             key={item.id}
             onClick={() => handleNavClick(item.id)}
@@ -83,6 +91,11 @@ function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
               {item.icon}
             </span>
             {item.label}
+            {item.adminOnly && (
+              <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                Admin
+              </span>
+            )}
           </button>
         ))}
       </nav>
