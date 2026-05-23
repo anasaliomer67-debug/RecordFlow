@@ -55,12 +55,29 @@ model Status {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  username String @unique
-  password String
-  fullName String @map("full_name")
-  role     String
-  isActive Int    @default(1) @map("is_active")
+  id              Int       @id @default(autoincrement())
+  username        String    @unique
+  password        String
+  fullName        String    @map("full_name")
+  role            String
+  isActive        Int       @default(1) @map("is_active")
+  failedAttempts  Int       @default(0) @map("failed_attempts")
+  lockedUntil     DateTime? @map("locked_until")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  description String
+  details     String?
+  performedBy String?  @map("performed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("activity_logs")
 }

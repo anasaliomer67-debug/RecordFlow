@@ -1,8 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { hash } from 'bcryptjs'
+import { requireAuth } from '@/lib/require-auth'
 
 export async function GET() {
   try {
+    const auth = await requireAuth()
+    if (!auth.authenticated) return auth.error
+
     const users = await db.user.findMany({
       select: {
         id: true,
@@ -10,6 +15,10 @@ export async function GET() {
         fullName: true,
         role: true,
         isActive: true,
+        failedAttempts: true,
+        lockedUntil: true,
+        createdAt: true,
+        updatedAt: true,
       },
       orderBy: { id: 'asc' },
     })
@@ -25,6 +34,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth(['Admin'])
+    if (!auth.authenticated) return auth.error
+
     const body = await request.json()
     const { username, password, fullName, role } = body
 
@@ -35,10 +47,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Hash the password with bcryptjs
+    const hashedPassword = await hash(password, 12)
+
     const user = await db.user.create({
       data: {
         username,
-        password,
+        password: hashedPassword,
         fullName,
         role,
       },

@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   FolderOpen,
+  ClipboardList,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { id: 'archive-files', label: 'Archive Files', icon: <Archive className="size-5" /> },
   { id: 'locations', label: 'Locations', icon: <MapPin className="size-5" /> },
   { id: 'users', label: 'Users', icon: <Users className="size-5" /> },
+  { id: 'activity-log', label: 'Activity Log', icon: <ClipboardList className="size-5" /> },
   { id: 'reports', label: 'Reports', icon: <BarChart3 className="size-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="size-5" /> },
 ]
