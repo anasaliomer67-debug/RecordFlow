@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const { searchParams } = new URL(request.url)
-    const days = parseInt(searchParams.get('days') || '30')
+    const requestedDays = Number.parseInt(searchParams.get('days') || '30', 10)
+    const days = Number.isInteger(requestedDays)
+      ? Math.min(Math.max(requestedDays, 1), 365)
+      : 30
 
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)

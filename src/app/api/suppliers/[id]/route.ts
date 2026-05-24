@@ -12,8 +12,16 @@ export async function PUT(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const supplierId = Number.parseInt(id, 10)
+    if (!Number.isInteger(supplierId)) {
+      return NextResponse.json(
+        { error: 'Invalid supplier id' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
-    const { supplierName } = body
+    const supplierName = typeof body.supplierName === 'string' ? body.supplierName.trim() : ''
 
     if (!supplierName) {
       return NextResponse.json(
@@ -23,7 +31,7 @@ export async function PUT(
     }
 
     const existing = await db.supplier.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: supplierId },
     })
 
     if (!existing) {
@@ -33,16 +41,23 @@ export async function PUT(
       )
     }
 
-    const updated = await db.supplier.update({
-      where: { id: parseInt(id) },
-      data: { supplierName },
-    })
+    const [updated, updatedFiles] = await db.$transaction([
+      db.supplier.update({
+        where: { id: supplierId },
+        data: { supplierName },
+      }),
+      db.archiveFile.updateMany({
+        where: { supplier: existing.supplierName },
+        data: { supplier: supplierName },
+      }),
+    ])
 
     await logActivity({
       action: 'UPDATE',
       entityType: 'supplier',
       entityId: String(updated.id),
-      description: `Updated supplier: "${existing.supplierName}" → "${supplierName}"`,
+      description: `Updated supplier: "${existing.supplierName}" -> "${supplierName}"`,
+      details: JSON.stringify({ updatedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 
@@ -72,9 +87,16 @@ export async function DELETE(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const supplierId = Number.parseInt(id, 10)
+    if (!Number.isInteger(supplierId)) {
+      return NextResponse.json(
+        { error: 'Invalid supplier id' },
+        { status: 400 }
+      )
+    }
 
     const existing = await db.supplier.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: supplierId },
     })
 
     if (!existing) {
@@ -84,15 +106,22 @@ export async function DELETE(
       )
     }
 
-    await db.supplier.delete({
-      where: { id: parseInt(id) },
-    })
+    const [updatedFiles] = await db.$transaction([
+      db.archiveFile.updateMany({
+        where: { supplier: existing.supplierName },
+        data: { supplier: null },
+      }),
+      db.supplier.delete({
+        where: { id: supplierId },
+      }),
+    ])
 
     await logActivity({
       action: 'DELETE',
       entityType: 'supplier',
       entityId: String(existing.id),
       description: `Deleted supplier: ${existing.supplierName}`,
+      details: JSON.stringify({ clearedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 

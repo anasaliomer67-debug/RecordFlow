@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const body = await request.json()
-    const { roomName } = body
+    const roomName = typeof body.roomName === 'string' ? body.roomName.trim() : ''
 
     if (!roomName) {
       return NextResponse.json(

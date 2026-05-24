@@ -1,4 +1,5 @@
 import { db } from '../src/lib/db';
+import { hash } from 'bcryptjs';
 
 async function seed() {
   console.log('🌱 Seeding database...');
@@ -26,7 +27,19 @@ async function seed() {
   console.log('✅ Categories seeded');
 
   // Seed Suppliers
-  const suppliers = ['Merck Serono', 'Julphar', 'Pfizer', 'Sanofi', 'GSK', 'Novartis', 'Roche', 'AstraZeneca'];
+  const suppliers = [
+    'Boston',
+    'Julphar',
+    'Merck Serono',
+    'Petra Pharma',
+    'Raza',
+    'Roche Diabetes',
+    'Roche Pharma',
+    'Saiph',
+    'Sana',
+    'Tabuk',
+    'Zada',
+  ];
   for (const name of suppliers) {
     await db.supplier.upsert({
       where: { supplierName: name },
@@ -72,7 +85,7 @@ async function seed() {
       {
         fileCode: 'SDF-003',
         title: 'Product Profile - Pfizer Batch 2024',
-        supplier: 'Pfizer',
+        supplier: 'Raza',
         category: 'PP',
         room: 'B',
         rack: 'R1',
@@ -83,7 +96,7 @@ async function seed() {
       {
         fileCode: 'SDF-004',
         title: 'Invoice #INV-2024-001',
-        supplier: 'Sanofi',
+        supplier: 'Roche Diabetes',
         category: 'Invoice',
         room: 'A',
         boxNumber: '2',
@@ -92,7 +105,7 @@ async function seed() {
       {
         fileCode: 'SDF-005',
         title: 'Shipment Record - GSK March 2024',
-        supplier: 'GSK',
+        supplier: 'Zada',
         category: 'Shipment',
         room: 'C',
         rack: 'R2',
@@ -104,7 +117,7 @@ async function seed() {
       {
         fileCode: 'SDF-006',
         title: 'Stability Study Report - Novartis',
-        supplier: 'Novartis',
+        supplier: 'Tabuk',
         category: 'Stability',
         room: 'B',
         rack: 'R1',
@@ -115,7 +128,7 @@ async function seed() {
       {
         fileCode: 'SDF-007',
         title: 'Customer Complaint #CC-2024-015',
-        supplier: 'Roche',
+        supplier: 'Roche Pharma',
         category: 'Complaint',
         room: 'D',
         boxNumber: '1',
@@ -125,7 +138,7 @@ async function seed() {
       {
         fileCode: 'SDF-008',
         title: 'Quality Protocol - AstraZeneca',
-        supplier: 'AstraZeneca',
+        supplier: 'Sana',
         category: 'Q.P',
         room: 'C',
         rack: 'R3',
@@ -156,7 +169,7 @@ async function seed() {
       {
         fileCode: 'SDF-011',
         title: 'Shipment Confirmation - Pfizer Q2',
-        supplier: 'Pfizer',
+        supplier: 'Raza',
         category: 'Shipment',
         room: 'C',
         rack: 'R1',
@@ -168,7 +181,7 @@ async function seed() {
       {
         fileCode: 'SDF-012',
         title: 'Product Profile - Sanofi New Line',
-        supplier: 'Sanofi',
+        supplier: 'Roche Diabetes',
         category: 'PP',
         room: 'D',
         rack: 'R1',
@@ -187,12 +200,17 @@ async function seed() {
   // Seed Users
   const existingUsers = await db.user.findMany();
   if (existingUsers.length === 0) {
+    const [adminPassword, userPassword] = await Promise.all([
+      hash('admin123', 12),
+      hash('pass123', 12),
+    ]);
+
     await db.user.createMany({
       data: [
-        { username: 'admin', password: 'admin123', fullName: 'System Administrator', role: 'Admin', isActive: 1 },
-        { username: 'johndoe', password: 'pass123', fullName: 'John Doe', role: 'Manager', isActive: 1 },
-        { username: 'janearc', password: 'pass123', fullName: 'Jane Archer', role: 'Staff', isActive: 1 },
-        { username: 'bobwilson', password: 'pass123', fullName: 'Bob Wilson', role: 'Staff', isActive: 0 },
+        { username: 'admin', password: adminPassword, fullName: 'System Administrator', role: 'Admin', isActive: 1 },
+        { username: 'johndoe', password: userPassword, fullName: 'John Doe', role: 'Manager', isActive: 1 },
+        { username: 'janearc', password: userPassword, fullName: 'Jane Archer', role: 'Staff', isActive: 1 },
+        { username: 'bobwilson', password: userPassword, fullName: 'Bob Wilson', role: 'Staff', isActive: 0 },
       ],
     });
     console.log('✅ Users seeded');

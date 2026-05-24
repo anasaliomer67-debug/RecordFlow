@@ -4,6 +4,8 @@ import { hash } from 'bcryptjs'
 import { requireAuth } from '@/lib/require-auth'
 import { logActivity } from '@/lib/activity-logger'
 
+const allowedRoles = new Set(['Admin', 'Manager', 'Staff'])
+
 export async function GET() {
   try {
     const auth = await requireAuth(['Admin'])
@@ -39,11 +41,21 @@ export async function POST(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const body = await request.json()
-    const { username, password, fullName, role } = body
+    const username = typeof body.username === 'string' ? body.username.trim() : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+    const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : ''
+    const role = typeof body.role === 'string' ? body.role.trim() : ''
 
     if (!username || !password || !fullName || !role) {
       return NextResponse.json(
         { error: 'username, password, fullName, and role are required' },
+        { status: 400 }
+      )
+    }
+
+    if (!allowedRoles.has(role)) {
+      return NextResponse.json(
+        { error: 'Invalid user role' },
         { status: 400 }
       )
     }

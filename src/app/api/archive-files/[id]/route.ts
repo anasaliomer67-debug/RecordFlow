@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/require-auth'
 import { logActivity } from '@/lib/activity-logger'
+import { nullableTextValue, textValue, validateArchiveFileLookups } from '@/lib/archive-file-input'
 
 export async function GET(
   request: NextRequest,
@@ -12,8 +13,16 @@ export async function GET(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const fileId = Number.parseInt(id, 10)
+    if (!Number.isInteger(fileId)) {
+      return NextResponse.json(
+        { error: 'Invalid archive file id' },
+        { status: 400 }
+      )
+    }
+
     const archiveFile = await db.archiveFile.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: fileId },
     })
 
     if (!archiveFile) {
@@ -42,10 +51,18 @@ export async function PUT(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const fileId = Number.parseInt(id, 10)
+    if (!Number.isInteger(fileId)) {
+      return NextResponse.json(
+        { error: 'Invalid archive file id' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
 
     const existing = await db.archiveFile.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: fileId },
     })
 
     if (!existing) {
@@ -55,32 +72,68 @@ export async function PUT(
       )
     }
 
+    const data: Record<string, string | null> = {}
+
+    if (body.fileCode !== undefined) data.fileCode = textValue(body.fileCode)
+    if (body.title !== undefined) data.title = textValue(body.title)
+    if (body.supplier !== undefined) data.supplier = nullableTextValue(body.supplier)
+    if (body.category !== undefined) data.category = nullableTextValue(body.category)
+    if (body.department !== undefined) data.department = nullableTextValue(body.department)
+    if (body.room !== undefined) data.room = nullableTextValue(body.room)
+    if (body.rack !== undefined) data.rack = nullableTextValue(body.rack)
+    if (body.shelf !== undefined) data.shelf = nullableTextValue(body.shelf)
+    if (body.boxNumber !== undefined) data.boxNumber = nullableTextValue(body.boxNumber)
+    if (body.retentionDate !== undefined) data.retentionDate = nullableTextValue(body.retentionDate)
+    if (body.status !== undefined) data.status = textValue(body.status)
+    if (body.notes !== undefined) data.notes = nullableTextValue(body.notes)
+
+    if (data.fileCode !== undefined && !data.fileCode) {
+      return NextResponse.json(
+        { error: 'fileCode is required' },
+        { status: 400 }
+      )
+    }
+
+    if (data.title !== undefined && !data.title) {
+      return NextResponse.json(
+        { error: 'title is required' },
+        { status: 400 }
+      )
+    }
+
+    if (data.status !== undefined && !data.status) {
+      return NextResponse.json(
+        { error: 'status is required' },
+        { status: 400 }
+      )
+    }
+
+    const lookupError = await validateArchiveFileLookups({
+      supplier: data.supplier !== undefined ? data.supplier : undefined,
+      category: data.category !== undefined ? data.category : undefined,
+      room: data.room !== undefined ? data.room : undefined,
+      status: data.status !== undefined ? data.status : undefined,
+    })
+    if (lookupError) {
+      return NextResponse.json(
+        { error: lookupError },
+        { status: 400 }
+      )
+    }
+
     const updatedFile = await db.archiveFile.update({
-      where: { id: parseInt(id) },
-      data: {
-        ...(body.fileCode !== undefined && { fileCode: body.fileCode }),
-        ...(body.title !== undefined && { title: body.title }),
-        ...(body.supplier !== undefined && { supplier: body.supplier || null }),
-        ...(body.category !== undefined && { category: body.category || null }),
-        ...(body.department !== undefined && { department: body.department || null }),
-        ...(body.room !== undefined && { room: body.room || null }),
-        ...(body.rack !== undefined && { rack: body.rack || null }),
-        ...(body.shelf !== undefined && { shelf: body.shelf || null }),
-        ...(body.boxNumber !== undefined && { boxNumber: body.boxNumber || null }),
-        ...(body.retentionDate !== undefined && { retentionDate: body.retentionDate || null }),
-        ...(body.status !== undefined && { status: body.status }),
-        ...(body.notes !== undefined && { notes: body.notes || null }),
-      },
+      where: { id: fileId },
+      data,
     })
 
     // Detect status change for more specific logging
-    const statusChanged = body.status !== undefined && body.status !== existing.status
+    const statusChanged = data.status !== undefined && data.status !== existing.status
     await logActivity({
       action: statusChanged ? 'STATUS_CHANGE' : 'UPDATE',
       entityType: 'archive_file',
       entityId: String(updatedFile.id),
       description: statusChanged
-        ? `Changed status of "${existing.fileCode}" from "${existing.status}" to "${body.status}"`
+        ? `Changed status of "${existing.fileCode}" from "${existing.status}" to "${data.status}"`
         : `Updated archive file: ${existing.fileCode} - ${existing.title}`,
       details: JSON.stringify({
         changes: Object.keys(body).filter(k => body[k] !== undefined),
@@ -115,9 +168,16 @@ export async function DELETE(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const fileId = Number.parseInt(id, 10)
+    if (!Number.isInteger(fileId)) {
+      return NextResponse.json(
+        { error: 'Invalid archive file id' },
+        { status: 400 }
+      )
+    }
 
     const existing = await db.archiveFile.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: fileId },
     })
 
     if (!existing) {
@@ -128,7 +188,7 @@ export async function DELETE(
     }
 
     await db.archiveFile.delete({
-      where: { id: parseInt(id) },
+      where: { id: fileId },
     })
 
     await logActivity({

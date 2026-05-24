@@ -91,6 +91,7 @@ export function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('User created successfully')
       closeDialog()
     },
@@ -113,6 +114,7 @@ export function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('User updated successfully')
       closeDialog()
     },
@@ -131,6 +133,7 @@ export function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('User deleted successfully')
       setDeleteDialogOpen(false)
       setDeletingUser(null)
@@ -154,6 +157,7 @@ export function UsersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('User status updated')
     },
     onError: (error: Error) => {

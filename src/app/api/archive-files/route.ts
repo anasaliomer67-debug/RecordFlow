@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/require-auth'
 import { logActivity } from '@/lib/activity-logger'
+import { nullableTextValue, textValue, validateArchiveFileLookups } from '@/lib/archive-file-input'
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,20 +54,18 @@ export async function POST(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const body = await request.json()
-    const {
-      fileCode,
-      title,
-      supplier,
-      category,
-      department,
-      room,
-      rack,
-      shelf,
-      boxNumber,
-      retentionDate,
-      status,
-      notes,
-    } = body
+    const fileCode = textValue(body.fileCode)
+    const title = textValue(body.title)
+    const supplier = nullableTextValue(body.supplier)
+    const category = nullableTextValue(body.category)
+    const department = nullableTextValue(body.department)
+    const room = nullableTextValue(body.room)
+    const rack = nullableTextValue(body.rack)
+    const shelf = nullableTextValue(body.shelf)
+    const boxNumber = nullableTextValue(body.boxNumber)
+    const retentionDate = nullableTextValue(body.retentionDate)
+    const status = textValue(body.status) || 'Active'
+    const notes = nullableTextValue(body.notes)
 
     if (!fileCode || !title) {
       return NextResponse.json(
@@ -75,20 +74,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const lookupError = await validateArchiveFileLookups({ supplier, category, room, status })
+    if (lookupError) {
+      return NextResponse.json(
+        { error: lookupError },
+        { status: 400 }
+      )
+    }
+
     const archiveFile = await db.archiveFile.create({
       data: {
         fileCode,
         title,
-        supplier: supplier || null,
-        category: category || null,
-        department: department || null,
-        room: room || null,
-        rack: rack || null,
-        shelf: shelf || null,
-        boxNumber: boxNumber || null,
-        retentionDate: retentionDate || null,
-        status: status || 'Active',
-        notes: notes || null,
+        supplier,
+        category,
+        department,
+        room,
+        rack,
+        shelf,
+        boxNumber,
+        retentionDate,
+        status,
+        notes,
       },
     })
 

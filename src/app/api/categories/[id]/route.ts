@@ -12,8 +12,16 @@ export async function PUT(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const categoryId = Number.parseInt(id, 10)
+    if (!Number.isInteger(categoryId)) {
+      return NextResponse.json(
+        { error: 'Invalid category id' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
-    const { categoryName } = body
+    const categoryName = typeof body.categoryName === 'string' ? body.categoryName.trim() : ''
 
     if (!categoryName) {
       return NextResponse.json(
@@ -23,7 +31,7 @@ export async function PUT(
     }
 
     const existing = await db.category.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: categoryId },
     })
 
     if (!existing) {
@@ -33,16 +41,23 @@ export async function PUT(
       )
     }
 
-    const updated = await db.category.update({
-      where: { id: parseInt(id) },
-      data: { categoryName },
-    })
+    const [updated, updatedFiles] = await db.$transaction([
+      db.category.update({
+        where: { id: categoryId },
+        data: { categoryName },
+      }),
+      db.archiveFile.updateMany({
+        where: { category: existing.categoryName },
+        data: { category: categoryName },
+      }),
+    ])
 
     await logActivity({
       action: 'UPDATE',
       entityType: 'category',
       entityId: String(updated.id),
-      description: `Updated category: "${existing.categoryName}" → "${categoryName}"`,
+      description: `Updated category: "${existing.categoryName}" -> "${categoryName}"`,
+      details: JSON.stringify({ updatedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 
@@ -72,9 +87,16 @@ export async function DELETE(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const categoryId = Number.parseInt(id, 10)
+    if (!Number.isInteger(categoryId)) {
+      return NextResponse.json(
+        { error: 'Invalid category id' },
+        { status: 400 }
+      )
+    }
 
     const existing = await db.category.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: categoryId },
     })
 
     if (!existing) {
@@ -84,15 +106,22 @@ export async function DELETE(
       )
     }
 
-    await db.category.delete({
-      where: { id: parseInt(id) },
-    })
+    const [updatedFiles] = await db.$transaction([
+      db.archiveFile.updateMany({
+        where: { category: existing.categoryName },
+        data: { category: null },
+      }),
+      db.category.delete({
+        where: { id: categoryId },
+      }),
+    ])
 
     await logActivity({
       action: 'DELETE',
       entityType: 'category',
       entityId: String(existing.id),
       description: `Deleted category: ${existing.categoryName}`,
+      details: JSON.stringify({ clearedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 

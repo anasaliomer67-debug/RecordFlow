@@ -12,8 +12,16 @@ export async function PUT(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const roomId = Number.parseInt(id, 10)
+    if (!Number.isInteger(roomId)) {
+      return NextResponse.json(
+        { error: 'Invalid room id' },
+        { status: 400 }
+      )
+    }
+
     const body = await request.json()
-    const { roomName } = body
+    const roomName = typeof body.roomName === 'string' ? body.roomName.trim() : ''
 
     if (!roomName) {
       return NextResponse.json(
@@ -23,7 +31,7 @@ export async function PUT(
     }
 
     const existing = await db.room.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: roomId },
     })
 
     if (!existing) {
@@ -33,16 +41,23 @@ export async function PUT(
       )
     }
 
-    const updated = await db.room.update({
-      where: { id: parseInt(id) },
-      data: { roomName },
-    })
+    const [updated, updatedFiles] = await db.$transaction([
+      db.room.update({
+        where: { id: roomId },
+        data: { roomName },
+      }),
+      db.archiveFile.updateMany({
+        where: { room: existing.roomName },
+        data: { room: roomName },
+      }),
+    ])
 
     await logActivity({
       action: 'UPDATE',
       entityType: 'room',
       entityId: String(updated.id),
-      description: `Updated room: "${existing.roomName}" → "${roomName}"`,
+      description: `Updated room: "${existing.roomName}" -> "${roomName}"`,
+      details: JSON.stringify({ updatedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 
@@ -72,9 +87,16 @@ export async function DELETE(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
+    const roomId = Number.parseInt(id, 10)
+    if (!Number.isInteger(roomId)) {
+      return NextResponse.json(
+        { error: 'Invalid room id' },
+        { status: 400 }
+      )
+    }
 
     const existing = await db.room.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: roomId },
     })
 
     if (!existing) {
@@ -84,15 +106,22 @@ export async function DELETE(
       )
     }
 
-    await db.room.delete({
-      where: { id: parseInt(id) },
-    })
+    const [updatedFiles] = await db.$transaction([
+      db.archiveFile.updateMany({
+        where: { room: existing.roomName },
+        data: { room: null },
+      }),
+      db.room.delete({
+        where: { id: roomId },
+      }),
+    ])
 
     await logActivity({
       action: 'DELETE',
       entityType: 'room',
       entityId: String(existing.id),
       description: `Deleted room: ${existing.roomName}`,
+      details: JSON.stringify({ clearedArchiveFiles: updatedFiles.count }),
       performedBy: auth.user?.username || null,
     })
 

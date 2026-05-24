@@ -92,6 +92,9 @@ export function LocationsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success(editingRoom ? 'Room updated successfully' : 'Room created successfully')
       closeDialog()
     },
@@ -111,6 +114,8 @@ export function LocationsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rooms'] })
       queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Room deleted successfully')
       setDeleteDialogOpen(false)
       setDeletingRoom(null)

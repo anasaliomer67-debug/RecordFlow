@@ -1,16 +1,23 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+
+const root = __dirname;
+const logPath = path.join(root, 'dev.log');
+const pidPath = path.join(root, 'server-pid.txt');
+const nextBin = path.join(root, 'node_modules', 'next', 'dist', 'bin', 'next');
 
 function startServer() {
-  const logFd = fs.openSync('/home/z/my-project/dev.log', 'a');
-  const child = spawn('node', ['node_modules/.bin/next', 'dev', '-p', '3000'], {
-    cwd: '/home/z/my-project',
+  const logFd = fs.openSync(logPath, 'a');
+  const child = spawn(process.execPath, [nextBin, 'dev', '-p', '3000'], {
+    cwd: root,
     stdio: ['ignore', logFd, logFd],
-    detached: true
+    detached: true,
+    windowsHide: true,
   });
   
   const ts = () => new Date().toISOString();
-  fs.writeFileSync('/home/z/my-project/server-pid.txt', String(child.pid));
+  fs.writeFileSync(pidPath, String(child.pid));
   console.log(`${ts()}: Started server PID ${child.pid}`);
   
   child.on('exit', (code, signal) => {
@@ -25,7 +32,7 @@ startServer();
 
 // Keep this process alive
 setInterval(() => {
-  const pid = fs.readFileSync('/home/z/my-project/server-pid.txt', 'utf8').trim();
+  const pid = fs.readFileSync(pidPath, 'utf8').trim();
   try {
     process.kill(Number(pid), 0);
   } catch {

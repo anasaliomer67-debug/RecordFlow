@@ -79,6 +79,9 @@ function CategoriesSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success(editingItem ? 'Category updated' : 'Category created')
       closeDialog()
     },
@@ -96,6 +99,9 @@ function CategoriesSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Category deleted')
       setDeleteDialogOpen(false)
       setDeletingItem(null)
@@ -264,6 +270,9 @@ function SuppliersSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
       toast.success(editingItem ? 'Supplier updated' : 'Supplier created')
       closeDialog()
     },
@@ -281,6 +290,9 @@ function SuppliersSection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
       toast.success('Supplier deleted')
       setDeleteDialogOpen(false)
       setDeletingItem(null)

@@ -9,8 +9,12 @@ export async function GET(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const pageSize = parseInt(searchParams.get('pageSize') || '20')
+    const requestedPage = Number.parseInt(searchParams.get('page') || '1', 10)
+    const requestedPageSize = Number.parseInt(searchParams.get('pageSize') || '20', 10)
+    const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1
+    const pageSize = Number.isInteger(requestedPageSize)
+      ? Math.min(Math.max(requestedPageSize, 1), 100)
+      : 20
     const search = searchParams.get('search') || ''
     const action = searchParams.get('action') || 'all'
     const entityType = searchParams.get('entityType') || 'all'

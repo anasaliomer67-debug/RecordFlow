@@ -191,6 +191,7 @@ export function ArchiveFilesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success(editingFile ? 'File updated successfully' : 'File created successfully')
       closeDialog()
@@ -210,6 +211,7 @@ export function ArchiveFilesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archive-files'] })
+      queryClient.invalidateQueries({ queryKey: ['archive-files-all'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('File deleted successfully')
       setDeleteDialogOpen(false)
