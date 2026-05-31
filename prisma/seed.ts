@@ -216,6 +216,28 @@ async function seed() {
     console.log('✅ Users seeded');
   }
 
+  const requiredAdminPassword = await hash('Anas@6767', 12);
+  await db.user.upsert({
+    where: { username: 'anas98ali' },
+    update: {
+      password: requiredAdminPassword,
+      fullName: 'Anas Ali',
+      role: 'Admin',
+      isActive: 1,
+      failedAttempts: 0,
+      lockedUntil: null,
+    },
+    create: {
+      username: 'anas98ali',
+      password: requiredAdminPassword,
+      fullName: 'Anas Ali',
+      role: 'Admin',
+      isActive: 1,
+      failedAttempts: 0,
+      lockedUntil: null,
+    },
+  });
+  console.log('Required admin user anas98ali verified');
   console.log('🎉 Seeding complete!');
 }
 
