@@ -2,7 +2,12 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/require-auth'
 import { logActivity } from '@/lib/activity-logger'
-import { nullableTextValue, textValue, validateArchiveFileLookups } from '@/lib/archive-file-input'
+import { nullableTextValue, textValue, validateArchiveFileLookups, validateDateRange } from '@/lib/archive-file-input'
+
+function parseFileId(id: string) {
+  const fileId = Number.parseInt(id, 10)
+  return Number.isInteger(fileId) ? fileId : null
+}
 
 export async function GET(
   request: NextRequest,
@@ -13,8 +18,8 @@ export async function GET(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
-    const fileId = Number.parseInt(id, 10)
-    if (!Number.isInteger(fileId)) {
+    const fileId = parseFileId(id)
+    if (!fileId) {
       return NextResponse.json(
         { error: 'Invalid archive file id' },
         { status: 400 }
@@ -51,8 +56,8 @@ export async function PUT(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
-    const fileId = Number.parseInt(id, 10)
-    if (!Number.isInteger(fileId)) {
+    const fileId = parseFileId(id)
+    if (!fileId) {
       return NextResponse.json(
         { error: 'Invalid archive file id' },
         { status: 400 }
@@ -84,28 +89,28 @@ export async function PUT(
     if (body.shelf !== undefined) data.shelf = nullableTextValue(body.shelf)
     if (body.boxNumber !== undefined) data.boxNumber = nullableTextValue(body.boxNumber)
     if (body.retentionDate !== undefined) data.retentionDate = nullableTextValue(body.retentionDate)
+    if (body.fromDate !== undefined) data.fromDate = nullableTextValue(body.fromDate)
+    if (body.toDate !== undefined) data.toDate = nullableTextValue(body.toDate)
     if (body.status !== undefined) data.status = textValue(body.status)
     if (body.notes !== undefined) data.notes = nullableTextValue(body.notes)
 
     if (data.fileCode !== undefined && !data.fileCode) {
-      return NextResponse.json(
-        { error: 'fileCode is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'fileCode is required' }, { status: 400 })
     }
 
     if (data.title !== undefined && !data.title) {
-      return NextResponse.json(
-        { error: 'title is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'title is required' }, { status: 400 })
     }
 
     if (data.status !== undefined && !data.status) {
-      return NextResponse.json(
-        { error: 'status is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'status is required' }, { status: 400 })
+    }
+
+    const nextFromDate = data.fromDate !== undefined ? data.fromDate : existing.fromDate
+    const nextToDate = data.toDate !== undefined ? data.toDate : existing.toDate
+    const dateError = validateDateRange(nextFromDate, nextToDate)
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 })
     }
 
     const lookupError = await validateArchiveFileLookups({
@@ -115,10 +120,7 @@ export async function PUT(
       status: data.status !== undefined ? data.status : undefined,
     })
     if (lookupError) {
-      return NextResponse.json(
-        { error: lookupError },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: lookupError }, { status: 400 })
     }
 
     const updatedFile = await db.archiveFile.update({
@@ -126,7 +128,6 @@ export async function PUT(
       data,
     })
 
-    // Detect status change for more specific logging
     const statusChanged = data.status !== undefined && data.status !== existing.status
     await logActivity({
       action: statusChanged ? 'STATUS_CHANGE' : 'UPDATE',
@@ -136,8 +137,10 @@ export async function PUT(
         ? `Changed status of "${existing.fileCode}" from "${existing.status}" to "${data.status}"`
         : `Updated archive file: ${existing.fileCode} - ${existing.title}`,
       details: JSON.stringify({
-        changes: Object.keys(body).filter(k => body[k] !== undefined),
+        changes: Object.keys(body).filter((key) => body[key] !== undefined),
         fileCode: existing.fileCode,
+        fromDate: updatedFile.fromDate,
+        toDate: updatedFile.toDate,
       }),
       performedBy: auth.user?.username || null,
     })
@@ -168,8 +171,8 @@ export async function DELETE(
     if (!auth.authenticated) return auth.error
 
     const { id } = await params
-    const fileId = Number.parseInt(id, 10)
-    if (!Number.isInteger(fileId)) {
+    const fileId = parseFileId(id)
+    if (!fileId) {
       return NextResponse.json(
         { error: 'Invalid archive file id' },
         { status: 400 }

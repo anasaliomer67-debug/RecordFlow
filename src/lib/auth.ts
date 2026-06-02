@@ -20,8 +20,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Username and password are required')
         }
 
+        const username = credentials.username.trim()
+        const password = credentials.password
+
         const user = await db.user.findUnique({
-          where: { username: credentials.username },
+          where: { username },
         })
 
         if (!user) {
@@ -52,7 +55,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Verify password
-        const isValid = await compare(credentials.password, user.password)
+        const isValid = await compare(password, user.password)
 
         if (!isValid) {
           // Increment failed attempts
@@ -96,7 +99,7 @@ export const authOptions: NextAuthOptions = {
           )
         }
 
-        // Successful login — reset failed attempts
+        // Successful login - reset failed attempts
         await db.user.update({
           where: { id: user.id },
           data: { failedAttempts: 0, lockedUntil: null },

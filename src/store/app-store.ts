@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type PageType = 'dashboard' | 'archive-files' | 'locations' | 'users' | 'reports' | 'activity-log' | 'settings'
+export type PageType = 'dashboard' | 'archive-files' | 'locations' | 'reports' | 'settings'
 
 interface AppState {
   activePage: PageType

@@ -6,13 +6,11 @@ import {
   LayoutDashboard,
   Archive,
   MapPin,
-  Users,
   BarChart3,
   Settings,
   Moon,
   Sun,
   FolderOpen,
-  ClipboardList,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useSession } from 'next-auth/react'
@@ -36,8 +34,6 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="size-5" /> },
   { id: 'archive-files', label: 'Archive Files', icon: <Archive className="size-5" /> },
   { id: 'locations', label: 'Locations', icon: <MapPin className="size-5" /> },
-  { id: 'users', label: 'Users', icon: <Users className="size-5" />, adminOnly: true },
-  { id: 'activity-log', label: 'Activity Log', icon: <ClipboardList className="size-5" />, adminOnly: true },
   { id: 'reports', label: 'Reports', icon: <BarChart3 className="size-5" /> },
   { id: 'settings', label: 'Settings', icon: <Settings className="size-5" />, adminOnly: true },
 ]

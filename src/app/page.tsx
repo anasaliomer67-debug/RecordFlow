@@ -5,10 +5,8 @@ import { Sidebar, MobileSidebar } from '@/components/sidebar'
 import { DashboardPage } from '@/components/dashboard-page'
 import { ArchiveFilesPage } from '@/components/archive-files-page'
 import { LocationsPage } from '@/components/locations-page'
-import { UsersPage } from '@/components/users-page'
 import { ReportsPage } from '@/components/reports-page'
 import { SettingsPage } from '@/components/settings-page'
-import { ActivityLogPage } from '@/components/activity-log-page'
 import { AuthProvider } from '@/components/auth-provider'
 import { Button } from '@/components/ui/button'
 import { Menu, LogOut, User, Shield, Lock } from 'lucide-react'
@@ -30,14 +28,12 @@ const pageTitles: Record<PageType, string> = {
   dashboard: 'Dashboard',
   'archive-files': 'Archive Files',
   locations: 'Locations',
-  users: 'Users',
   reports: 'Reports',
-  'activity-log': 'Activity Log',
   settings: 'Settings',
 }
 
 // Pages that require Admin role
-const adminOnlyPages: PageType[] = ['users', 'activity-log', 'settings']
+const adminOnlyPages: PageType[] = ['settings']
 
 function AccessDenied({ pageName }: { pageName: string }) {
   return (
@@ -76,12 +72,8 @@ function PageContent({ page }: { page: PageType }) {
       return <ArchiveFilesPage />
     case 'locations':
       return <LocationsPage />
-    case 'users':
-      return <UsersPage />
     case 'reports':
       return <ReportsPage />
-    case 'activity-log':
-      return <ActivityLogPage />
     case 'settings':
       return <SettingsPage />
     default:
@@ -212,7 +204,7 @@ function AppContent() {
         </div>
 
         <footer className="border-t bg-card px-4 py-3 text-center text-sm text-muted-foreground">
-          RecordFlow &copy; {new Date().getFullYear()} — Archive Management System
+          RecordFlow &copy; {new Date().getFullYear()} - Archive Management System
         </footer>
       </div>
     </QueryClientProvider>

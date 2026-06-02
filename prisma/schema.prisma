@@ -19,6 +19,8 @@ model ArchiveFile {
   shelf         String?
   boxNumber     String?  @map("box_number")
   retentionDate String?  @map("retention_date")
+  fromDate      String?  @map("from_date")
+  toDate        String?  @map("to_date")
   status        String   @default("Active")
   notes         String?
   createdAt     DateTime @default(now()) @map("created_at")

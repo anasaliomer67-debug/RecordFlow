@@ -43,6 +43,9 @@ interface DashboardData {
     title: string
     category: string | null
     status: string
+    fromDate: string | null
+    toDate: string | null
+    notes: string | null
     createdAt: string
   }>
   filesByCategory: Array<{ category: string; count: number }>
@@ -247,7 +250,10 @@ export function DashboardPage() {
                   <TableHead>Title</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>From Date</TableHead>
+                  <TableHead>To Date</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -261,6 +267,9 @@ export function DashboardPage() {
                         {file.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground">{file.fromDate || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{file.toDate || '-'}</TableCell>
+                    <TableCell className="max-w-40 truncate text-muted-foreground" title={file.notes || ''}>{file.notes || '-'}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(file.createdAt).toLocaleDateString()}
                     </TableCell>

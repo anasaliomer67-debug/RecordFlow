@@ -53,6 +53,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      )
+    }
+
     if (!allowedRoles.has(role)) {
       return NextResponse.json(
         { error: 'Invalid user role' },
@@ -69,6 +76,9 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         fullName,
         role,
+        isActive: 1,
+        failedAttempts: 0,
+        lockedUntil: null,
       },
       select: {
         id: true,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Pencil, Trash2, UserCheck, UserX } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserCheck, UserX, Search, RefreshCw, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface User {
@@ -53,12 +53,25 @@ interface User {
   isActive: number
 }
 
+const emptyFilters = {
+  search: '',
+  username: '',
+  fullName: '',
+  role: 'all',
+  status: 'all',
+}
+
+function includesText(value: unknown, search: string) {
+  return String(value ?? '').toLowerCase().includes(search.toLowerCase())
+}
+
 export function UsersPage() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
+  const [filters, setFilters] = useState(emptyFilters)
   const [form, setForm] = useState({
     username: '',
     fullName: '',
@@ -67,8 +80,7 @@ export function UsersPage() {
   })
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  // Fetch users
-  const { data: users = [], isLoading } = useQuery<User[]>({
+  const { data: users = [], isLoading, isFetching, refetch } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: async () => {
       const res = await fetch('/api/users')
@@ -77,13 +89,34 @@ export function UsersPage() {
     },
   })
 
-  // Create mutation
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const statusText = user.isActive === 1 ? 'Active' : 'Inactive'
+      const searchable = [user.username, user.fullName, user.role, statusText]
+
+      if (filters.search && !searchable.some((value) => includesText(value, filters.search))) return false
+      if (filters.username && !includesText(user.username, filters.username)) return false
+      if (filters.fullName && !includesText(user.fullName, filters.fullName)) return false
+      if (filters.role !== 'all' && user.role !== filters.role) return false
+      if (filters.status !== 'all' && statusText !== filters.status) return false
+      return true
+    })
+  }, [users, filters])
+
+  const hasActiveFilters = Object.values(filters).some((value) => value && value !== 'all')
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof form) => {
+      const payload = {
+        username: data.username.trim(),
+        fullName: data.fullName.trim(),
+        role: data.role,
+        password: data.password,
+      }
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Failed to create user')
@@ -95,12 +128,9 @@ export function UsersPage() {
       toast.success('User created successfully')
       closeDialog()
     },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
+    onError: (error: Error) => toast.error(error.message),
   })
 
-  // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<User> }) => {
       const res = await fetch(`/api/users/${id}`, {
@@ -118,12 +148,9 @@ export function UsersPage() {
       toast.success('User updated successfully')
       closeDialog()
     },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
+    onError: (error: Error) => toast.error(error.message),
   })
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
@@ -138,12 +165,9 @@ export function UsersPage() {
       setDeleteDialogOpen(false)
       setDeletingUser(null)
     },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
+    onError: (error: Error) => toast.error(error.message),
   })
 
-  // Toggle active status
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
       const res = await fetch(`/api/users/${id}`, {
@@ -160,9 +184,7 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('User status updated')
     },
-    onError: (error: Error) => {
-      toast.error(error.message)
-    },
+    onError: (error: Error) => toast.error(error.message),
   })
 
   const openCreateDialog = () => {
@@ -174,12 +196,7 @@ export function UsersPage() {
 
   const openEditDialog = (user: User) => {
     setEditingUser(user)
-    setForm({
-      username: user.username,
-      fullName: user.fullName,
-      role: user.role,
-      password: '',
-    })
+    setForm({ username: user.username, fullName: user.fullName, role: user.role, password: '' })
     setFormErrors({})
     setDialogOpen(true)
   }
@@ -191,11 +208,26 @@ export function UsersPage() {
     setFormErrors({})
   }
 
+  const updateFilter = (key: keyof typeof filters, value: string) => {
+    setFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  const handleRefresh = async () => {
+    try {
+      await refetch()
+      toast.success('Users refreshed')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to refresh users')
+    }
+  }
+
   const validateForm = () => {
     const errors: Record<string, string> = {}
     if (!form.username.trim()) errors.username = 'Username is required'
+    if (form.username.trim().includes(' ')) errors.username = 'Username cannot contain spaces'
     if (!form.fullName.trim()) errors.fullName = 'Full name is required'
-    if (!editingUser && !form.password.trim()) errors.password = 'Password is required'
+    if (!editingUser && !form.password) errors.password = 'Password is required'
+    if (!editingUser && form.password && form.password.length < 6) errors.password = 'Password must be at least 6 characters'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -205,10 +237,7 @@ export function UsersPage() {
     if (editingUser) {
       updateMutation.mutate({
         id: editingUser.id,
-        data: {
-          fullName: form.fullName,
-          role: form.role,
-        },
+        data: { fullName: form.fullName.trim(), role: form.role },
       })
     } else {
       createMutation.mutate(form)
@@ -228,7 +257,6 @@ export function UsersPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Users</h2>
@@ -240,21 +268,61 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {/* User Table */}
+      <Card>
+        <CardContent className="space-y-4 p-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="relative md:col-span-2">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="Search username, name, role, status..." value={filters.search} onChange={(e) => updateFilter('search', e.target.value)} className="pl-9" />
+            </div>
+            <Input placeholder="Username" value={filters.username} onChange={(e) => updateFilter('username', e.target.value)} />
+            <Input placeholder="Full Name" value={filters.fullName} onChange={(e) => updateFilter('fullName', e.target.value)} />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 gap-2" onClick={handleRefresh} disabled={isFetching}>
+                <RefreshCw className={`size-4 ${isFetching ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              {hasActiveFilters && (
+                <Button variant="outline" size="icon" onClick={() => setFilters(emptyFilters)}>
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Select value={filters.role} onValueChange={(value) => updateFilter('role', value)}>
+              <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="Admin">Admin</SelectItem>
+                <SelectItem value="Manager">Manager</SelectItem>
+                <SelectItem value="Staff">Staff</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="space-y-3 p-6">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
-          ) : users.length > 0 ? (
+          ) : filteredUsers.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>Full Name</TableHead>
                     <TableHead>Username</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
@@ -262,59 +330,29 @@ export function UsersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {filteredUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">{user.fullName}</TableCell>
                       <TableCell className="text-muted-foreground">{user.username}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={getRoleBadgeVariant(user.role)}>
-                          {user.role}
-                        </Badge>
+                        <Badge variant="secondary" className={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Switch
-                            checked={user.isActive === 1}
-                            onCheckedChange={(checked) =>
-                              toggleActiveMutation.mutate({ id: user.id, isActive: checked })
-                            }
-                          />
+                          <Switch checked={user.isActive === 1} onCheckedChange={(checked) => toggleActiveMutation.mutate({ id: user.id, isActive: checked })} />
                           <span className="flex items-center gap-1 text-sm">
                             {user.isActive === 1 ? (
-                              <>
-                                <UserCheck className="size-3.5 text-emerald-600" />
-                                <span className="text-emerald-600 dark:text-emerald-400">Active</span>
-                              </>
+                              <><UserCheck className="size-3.5 text-emerald-600" /><span className="text-emerald-600 dark:text-emerald-400">Active</span></>
                             ) : (
-                              <>
-                                <UserX className="size-3.5 text-slate-400" />
-                                <span className="text-slate-500">Inactive</span>
-                              </>
+                              <><UserX className="size-3.5 text-slate-400" /><span className="text-slate-500">Inactive</span></>
                             )}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setDeletingUser(user)
-                              setDeleteDialogOpen(true)
-                            }}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="size-8" onClick={() => openEditDialog(user)}><Pencil className="size-4" /></Button>
+                          <Button variant="ghost" size="icon" className="size-8 text-destructive hover:text-destructive" onClick={() => { setDeletingUser(user); setDeleteDialogOpen(true) }}><Trash2 className="size-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -324,53 +362,33 @@ export function UsersPage() {
             </div>
           ) : (
             <div className="flex h-40 items-center justify-center text-muted-foreground">
-              No users found. Click &quot;Add User&quot; to create one.
+              {users.length === 0 ? 'No users found. Click "Add User" to create one.' : 'No users match the current filters.'}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingUser ? 'Edit User' : 'Add User'}</DialogTitle>
-            <DialogDescription>
-              {editingUser ? 'Update user details below.' : 'Create a new user account.'}
-            </DialogDescription>
+            <DialogDescription>{editingUser ? 'Update user details below.' : 'Create a new user account.'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="username">Username *</Label>
-              <Input
-                id="username"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                placeholder="Username"
-                disabled={!!editingUser}
-              />
-              {formErrors.username && (
-                <p className="text-xs text-destructive">{formErrors.username}</p>
-              )}
+              <Input id="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="Username" disabled={!!editingUser} />
+              {formErrors.username && <p className="text-xs text-destructive">{formErrors.username}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name *</Label>
-              <Input
-                id="fullName"
-                value={form.fullName}
-                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                placeholder="Full name"
-              />
-              {formErrors.fullName && (
-                <p className="text-xs text-destructive">{formErrors.fullName}</p>
-              )}
+              <Input id="fullName" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Full name" />
+              {formErrors.fullName && <p className="text-xs text-destructive">{formErrors.fullName}</p>}
             </div>
             <div className="space-y-2">
               <Label>Role *</Label>
               <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Admin">Admin</SelectItem>
                   <SelectItem value="Manager">Manager</SelectItem>
@@ -381,39 +399,20 @@ export function UsersPage() {
             {!editingUser && (
               <div className="space-y-2">
                 <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Password"
-                />
-                {formErrors.password && (
-                  <p className="text-xs text-destructive">{formErrors.password}</p>
-                )}
+                <Input id="password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="At least 6 characters" />
+                {formErrors.password && <p className="text-xs text-destructive">{formErrors.password}</p>}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              {createMutation.isPending || updateMutation.isPending
-                ? 'Saving...'
-                : editingUser
-                  ? 'Update'
-                  : 'Create'}
+            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending} className="bg-emerald-600 hover:bg-emerald-700">
+              {createMutation.isPending || updateMutation.isPending ? 'Saving...' : editingUser ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -424,10 +423,7 @@ export function UsersPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={() => deletingUser && deleteMutation.mutate(deletingUser.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

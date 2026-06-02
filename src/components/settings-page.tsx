@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Pencil, Trash2, Tag, Truck, CircleDot } from 'lucide-react'
 import { toast } from 'sonner'
+import { UsersPage } from '@/components/users-page'
+import { ActivityLogPage } from '@/components/activity-log-page'
 
 interface Category {
   id: number
@@ -45,7 +47,7 @@ interface Status {
   statusName: string
 }
 
-// ─── Categories Section ───────────────────────────────────────────────
+// Categories Section
 function CategoriesSection() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -236,7 +238,7 @@ function CategoriesSection() {
   )
 }
 
-// ─── Suppliers Section ────────────────────────────────────────────────
+// Suppliers Section
 function SuppliersSection() {
   const queryClient = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -427,7 +429,7 @@ function SuppliersSection() {
   )
 }
 
-// ─── Statuses Section ─────────────────────────────────────────────────
+// Statuses Section
 function StatusesSection() {
   const { data: statuses = [], isLoading } = useQuery<Status[]>({
     queryKey: ['statuses'],
@@ -486,21 +488,31 @@ function StatusesSection() {
   )
 }
 
-// ─── Main Settings Page ───────────────────────────────────────────────
+// Main Settings Page
 export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">Manage system configuration and reference data</p>
+        <p className="text-muted-foreground">Manage users, activity, and system reference data</p>
       </div>
 
-      <Tabs defaultValue="categories">
-        <TabsList>
+      <Tabs defaultValue="users">
+        <TabsList className="flex h-auto flex-wrap justify-start">
+          <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="activity-log">Activity Log</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           <TabsTrigger value="statuses">Statuses</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="users" className="mt-4">
+          <UsersPage />
+        </TabsContent>
+
+        <TabsContent value="activity-log" className="mt-4">
+          <ActivityLogPage />
+        </TabsContent>
 
         <TabsContent value="categories" className="mt-4">
           <Card>

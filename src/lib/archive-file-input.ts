@@ -58,3 +58,10 @@ export async function validateArchiveFileLookups(values: Partial<Record<FieldNam
 
   return null
 }
+
+export function validateDateRange(fromDate: string | null, toDate: string | null) {
+  if (fromDate && Number.isNaN(Date.parse(fromDate))) return 'From Date is invalid'
+  if (toDate && Number.isNaN(Date.parse(toDate))) return 'To Date is invalid'
+  if (fromDate && toDate && fromDate > toDate) return 'From Date cannot be after To Date'
+  return null
+}

@@ -32,6 +32,17 @@ export async function GET() {
       db.archiveFile.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          fileCode: true,
+          title: true,
+          category: true,
+          status: true,
+          fromDate: true,
+          toDate: true,
+          notes: true,
+          createdAt: true,
+        },
       }),
       db.archiveFile.groupBy({
         by: ['category'],

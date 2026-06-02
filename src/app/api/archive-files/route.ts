@@ -2,7 +2,11 @@ import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/require-auth'
 import { logActivity } from '@/lib/activity-logger'
-import { nullableTextValue, textValue, validateArchiveFileLookups } from '@/lib/archive-file-input'
+import { nullableTextValue, textValue, validateArchiveFileLookups, validateDateRange } from '@/lib/archive-file-input'
+
+function includesText(value: unknown, search: string) {
+  return String(value ?? '').toLowerCase().includes(search.toLowerCase())
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,35 +14,53 @@ export async function GET(request: NextRequest) {
     if (!auth.authenticated) return auth.error
 
     const searchParams = request.nextUrl.searchParams
-    const search = searchParams.get('search') || ''
-    const status = searchParams.get('status') || ''
-    const category = searchParams.get('category') || ''
-
-    const where: Record<string, unknown> = {}
-
-    if (search) {
-      where.OR = [
-        { fileCode: { contains: search } },
-        { title: { contains: search } },
-        { supplier: { contains: search } },
-        { category: { contains: search } },
-      ]
-    }
-
-    if (status) {
-      where.status = status
-    }
-
-    if (category) {
-      where.category = category
+    const search = textValue(searchParams.get('search'))
+    const filters = {
+      fileCode: textValue(searchParams.get('fileCode')),
+      title: textValue(searchParams.get('title')),
+      supplier: textValue(searchParams.get('supplier')),
+      category: textValue(searchParams.get('category')),
+      room: textValue(searchParams.get('room')),
+      boxNumber: textValue(searchParams.get('boxNumber')),
+      status: textValue(searchParams.get('status')),
+      fromDate: textValue(searchParams.get('fromDate')),
+      toDate: textValue(searchParams.get('toDate')),
+      notes: textValue(searchParams.get('notes')),
     }
 
     const archiveFiles = await db.archiveFile.findMany({
-      where,
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(archiveFiles)
+    const filtered = archiveFiles.filter((file) => {
+      const searchable = [
+        file.fileCode,
+        file.title,
+        file.supplier,
+        file.category,
+        file.room,
+        file.boxNumber,
+        file.status,
+        file.fromDate,
+        file.toDate,
+        file.notes,
+      ]
+
+      if (search && !searchable.some((value) => includesText(value, search))) return false
+      if (filters.fileCode && !includesText(file.fileCode, filters.fileCode)) return false
+      if (filters.title && !includesText(file.title, filters.title)) return false
+      if (filters.supplier && filters.supplier !== 'all' && !includesText(file.supplier, filters.supplier)) return false
+      if (filters.category && filters.category !== 'all' && !includesText(file.category, filters.category)) return false
+      if (filters.room && filters.room !== 'all' && !includesText(file.room, filters.room)) return false
+      if (filters.status && filters.status !== 'all' && !includesText(file.status, filters.status)) return false
+      if (filters.boxNumber && !includesText(file.boxNumber, filters.boxNumber)) return false
+      if (filters.fromDate && !includesText(file.fromDate, filters.fromDate)) return false
+      if (filters.toDate && !includesText(file.toDate, filters.toDate)) return false
+      if (filters.notes && !includesText(file.notes, filters.notes)) return false
+      return true
+    })
+
+    return NextResponse.json(filtered)
   } catch (error) {
     console.error('Error fetching archive files:', error)
     return NextResponse.json(
@@ -64,6 +86,8 @@ export async function POST(request: NextRequest) {
     const shelf = nullableTextValue(body.shelf)
     const boxNumber = nullableTextValue(body.boxNumber)
     const retentionDate = nullableTextValue(body.retentionDate)
+    const fromDate = nullableTextValue(body.fromDate)
+    const toDate = nullableTextValue(body.toDate)
     const status = textValue(body.status) || 'Active'
     const notes = nullableTextValue(body.notes)
 
@@ -72,6 +96,11 @@ export async function POST(request: NextRequest) {
         { error: 'fileCode and title are required' },
         { status: 400 }
       )
+    }
+
+    const dateError = validateDateRange(fromDate, toDate)
+    if (dateError) {
+      return NextResponse.json({ error: dateError }, { status: 400 })
     }
 
     const lookupError = await validateArchiveFileLookups({ supplier, category, room, status })
@@ -94,6 +123,8 @@ export async function POST(request: NextRequest) {
         shelf,
         boxNumber,
         retentionDate,
+        fromDate,
+        toDate,
         status,
         notes,
       },
@@ -104,7 +135,7 @@ export async function POST(request: NextRequest) {
       entityType: 'archive_file',
       entityId: String(archiveFile.id),
       description: `Created archive file: ${fileCode} - ${title}`,
-      details: JSON.stringify({ fileCode, title, supplier, category, department, room }),
+      details: JSON.stringify({ fileCode, title, supplier, category, department, room, fromDate, toDate }),
       performedBy: auth.user?.username || null,
     })
 
